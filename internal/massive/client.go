@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -79,4 +80,19 @@ func (c *Client) fetchRaw(path string) (map[string]interface{}, error) {
 func (c *Client) GetTickerDetails(symbol string) (map[string]interface{}, error) {
 	path := fmt.Sprintf("/reference/tickers/%s?apiKey=%s", symbol, c.apiKey)
 	return c.fetchRaw(path)
+}
+
+func (c *Client) GetCustomBars(stocksTicker, multiplier, timespan, from, to string, extra map[string]string) (map[string]interface{}, error) {
+	path := fmt.Sprintf("/v2/aggs/ticker/%s/range/%s/%s/%s/%s", stocksTicker, multiplier, timespan, from, to)
+
+	values := url.Values{}
+	values.Set("apiKey", c.apiKey)
+	for k, v := range extra {
+		if v != "" {
+			values.Set(k, v)
+		}
+	}
+
+	fullPath := path + "?" + values.Encode()
+	return c.fetchRaw(fullPath)
 }

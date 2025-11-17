@@ -26,6 +26,7 @@ func main() {
 	})
 
 	app.Get("/api/tickers/:symbol", handler.GetTickerDetails)
+	app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
 
 	log.Fatal(app.Listen(":" + cfg.Port))
 }
