@@ -27,6 +27,10 @@ func main() {
 
 	app.Get("/api/tickers/:symbol", handler.GetTickerDetails)
 	app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
-
+	app.Get("/api/indicators/sma/:stocksTicker", handler.GetSMA)
+	app.Get("/api/indicators/ema/:stocksTicker", handler.GetEMA)
+	app.Get("/api/indicators/macd/:stocksTicker", handler.GetMACD)
+	app.Get("/api/indicators/rsi/:stocksTicker", handler.GetRSI)
+	app.Get("/api/exchanges", handler.GetExchanges)
 	log.Fatal(app.Listen(":" + cfg.Port))
 }
