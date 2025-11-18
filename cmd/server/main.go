@@ -18,19 +18,28 @@ func main() {
 	cacheClient := cache.New(cfg.RedisAddr, cfg.RedisPass, cfg.RedisDB, cfg.CacheTTL)
 	defer cacheClient.Close()
 
-	massive_client := massive.New(cfg.MassiveBase, cfg.MassiveKey)
-	handler := api.New(cacheClient, massive_client)
+	massiveClient := massive.New(cfg.MassiveBase, cfg.MassiveKey)
+	handler := api.New(cacheClient, massiveClient)
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
 
 	app.Get("/api/tickers/:symbol", handler.GetTickerDetails)
-	app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
+	// app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
 	app.Get("/api/indicators/sma/:stocksTicker", handler.GetSMA)
 	app.Get("/api/indicators/ema/:stocksTicker", handler.GetEMA)
 	app.Get("/api/indicators/macd/:stocksTicker", handler.GetMACD)
 	app.Get("/api/indicators/rsi/:stocksTicker", handler.GetRSI)
 	app.Get("/api/exchanges", handler.GetExchanges)
+	app.Get("/api/market/upcoming", handler.GetMarketHolidays)
+	app.Get("/api/market/now", handler.GetMarketStatus)
+	app.Get("/api/market/condition", handler.GetConditions)
+	app.Get("/api/ipos", handler.GetIPOs)
+	app.Get("/api/dividends", handler.GetDividends)
+	app.Get("/api/stocks/short-interest", handler.GetShortInterest)
+	app.Get("/api/stocks/short-volume", handler.GetShortVolume)
+	app.Get("/api/news", handler.GetNews)
+
 	log.Fatal(app.Listen(":" + cfg.Port))
 }
