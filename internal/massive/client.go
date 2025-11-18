@@ -150,7 +150,7 @@ func (c *Client) GetConditions(extra map[string]string) (map[string]interface{},
 
 func (c *Client) GetIPOs(extra map[string]string) (map[string]interface{}, error) {
 	// Reference endpoints live under v3
-	full := c.buildURL("/v3/reference/ipos", extra)
+	full := c.buildURL("/vX/reference/ipos", extra)
 	return c.fetchRaw(full)
 }
 
