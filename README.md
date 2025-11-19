@@ -7,6 +7,10 @@ Lightweight Go/Fiber API that proxies selected Massive.com endpoints with Redis 
 - HTTP client: centralized Massive client with URL/query helpers
 - Testing: httptest + miniredis (no real network needed)
 
+## Demo (frontend is at: https://github.com/dnhan1707/trader-view)
+<img width="2549" height="1215" alt="traderview" src="https://github.com/user-attachments/assets/e36f2efb-b0f8-46fb-a629-eb9ec19a9f29" />
+
+
 ## Quickstart (Windows/PowerShell)
 
 1) Requirements
