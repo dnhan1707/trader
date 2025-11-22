@@ -173,3 +173,13 @@ func (c *Client) GetNews(extra map[string]string) (map[string]interface{}, error
 	full := c.buildURL("/v2/reference/news", extra)
 	return c.fetchRaw(full)
 }
+
+func (c *Client) GetRatios(extra map[string]string) (map[string]interface{}, error) {
+	full := c.buildURL("/stocks/financials/v1/ratios", extra)
+	return c.fetchRaw(full)
+}
+
+func (c *Client) GetTickerSnapshot(stocksTicker string) (map[string]interface{}, error) {
+	full := c.buildURL(fmt.Sprintf("/v2/snapshot/locale/us/markets/stocks/tickers/%s", stocksTicker), nil)
+	return c.fetchRaw(full)
+}

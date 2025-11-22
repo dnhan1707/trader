@@ -484,3 +484,188 @@ func (h *Handler) GetNews(c *fiber.Ctx) error {
 		return h.massive.GetNews(extra)
 	})
 }
+
+func (h *Handler) GetRatios(c *fiber.Ctx) error {
+	extra := map[string]string{
+		"ticker":        c.Query("ticker", ""),
+		"ticker.any_of": c.Query("ticker.any_of", ""),
+		"ticker.gt":     c.Query("ticker.gt", ""),
+		"ticker.gte":    c.Query("ticker.gte", ""),
+		"ticker.lt":     c.Query("ticker.lt", ""),
+		"ticker.lte":    c.Query("ticker.lte", ""),
+
+		"cik":        c.Query("cik", ""),
+		"cik.any_of": c.Query("cik.any_of", ""),
+		"cik.gt":     c.Query("cik.gt", ""),
+		"cik.gte":    c.Query("cik.gte", ""),
+		"cik.lt":     c.Query("cik.lt", ""),
+		"cik.lte":    c.Query("cik.lte", ""),
+
+		"price":     c.Query("price", ""),
+		"price.gt":  c.Query("price.gt", ""),
+		"price.gte": c.Query("price.gte", ""),
+		"price.lt":  c.Query("price.lt", ""),
+		"price.lte": c.Query("price.lte", ""),
+
+		"average_volume":     c.Query("average_volume", ""),
+		"average_volume.gt":  c.Query("average_volume.gt", ""),
+		"average_volume.gte": c.Query("average_volume.gte", ""),
+		"average_volume.lt":  c.Query("average_volume.lt", ""),
+		"average_volume.lte": c.Query("average_volume.lte", ""),
+
+		"market_cap":     c.Query("market_cap", ""),
+		"market_cap.gt":  c.Query("market_cap.gt", ""),
+		"market_cap.gte": c.Query("market_cap.gte", ""),
+		"market_cap.lt":  c.Query("market_cap.lt", ""),
+		"market_cap.lte": c.Query("market_cap.lte", ""),
+
+		"earnings_per_share":     c.Query("earnings_per_share", ""),
+		"earnings_per_share.gt":  c.Query("earnings_per_share.gt", ""),
+		"earnings_per_share.gte": c.Query("earnings_per_share.gte", ""),
+		"earnings_per_share.lt":  c.Query("earnings_per_share.lt", ""),
+		"earnings_per_share.lte": c.Query("earnings_per_share.lte", ""),
+
+		"price_to_earnings":     c.Query("price_to_earnings", ""),
+		"price_to_earnings.gt":  c.Query("price_to_earnings.gt", ""),
+		"price_to_earnings.gte": c.Query("price_to_earnings.gte", ""),
+		"price_to_earnings.lt":  c.Query("price_to_earnings.lt", ""),
+		"price_to_earnings.lte": c.Query("price_to_earnings.lte", ""),
+
+		"price_to_book":     c.Query("price_to_book", ""),
+		"price_to_book.gt":  c.Query("price_to_book.gt", ""),
+		"price_to_book.gte": c.Query("price_to_book.gte", ""),
+		"price_to_book.lt":  c.Query("price_to_book.lt", ""),
+		"price_to_book.lte": c.Query("price_to_book.lte", ""),
+
+		"price_to_sales":     c.Query("price_to_sales", ""),
+		"price_to_sales.gt":  c.Query("price_to_sales.gt", ""),
+		"price_to_sales.gte": c.Query("price_to_sales.gte", ""),
+		"price_to_sales.lt":  c.Query("price_to_sales.lt", ""),
+		"price_to_sales.lte": c.Query("price_to_sales.lte", ""),
+
+		"price_to_cash_flow":     c.Query("price_to_cash_flow", ""),
+		"price_to_cash_flow.gt":  c.Query("price_to_cash_flow.gt", ""),
+		"price_to_cash_flow.gte": c.Query("price_to_cash_flow.gte", ""),
+		"price_to_cash_flow.lt":  c.Query("price_to_cash_flow.lt", ""),
+		"price_to_cash_flow.lte": c.Query("price_to_cash_flow.lte", ""),
+
+		"price_to_free_cash_flow":     c.Query("price_to_free_cash_flow", ""),
+		"price_to_free_cash_flow.gt":  c.Query("price_to_free_cash_flow.gt", ""),
+		"price_to_free_cash_flow.gte": c.Query("price_to_free_cash_flow.gte", ""),
+		"price_to_free_cash_flow.lt":  c.Query("price_to_free_cash_flow.lt", ""),
+		"price_to_free_cash_flow.lte": c.Query("price_to_free_cash_flow.lte", ""),
+
+		"dividend_yield":     c.Query("dividend_yield", ""),
+		"dividend_yield.gt":  c.Query("dividend_yield.gt", ""),
+		"dividend_yield.gte": c.Query("dividend_yield.gte", ""),
+		"dividend_yield.lt":  c.Query("dividend_yield.lt", ""),
+		"dividend_yield.lte": c.Query("dividend_yield.lte", ""),
+
+		"return_on_assets":     c.Query("return_on_assets", ""),
+		"return_on_assets.gt":  c.Query("return_on_assets.gt", ""),
+		"return_on_assets.gte": c.Query("return_on_assets.gte", ""),
+		"return_on_assets.lt":  c.Query("return_on_assets.lt", ""),
+		"return_on_assets.lte": c.Query("return_on_assets.lte", ""),
+
+		"return_on_equity":     c.Query("return_on_equity", ""),
+		"return_on_equity.gt":  c.Query("return_on_equity.gt", ""),
+		"return_on_equity.gte": c.Query("return_on_equity.gte", ""),
+		"return_on_equity.lt":  c.Query("return_on_equity.lt", ""),
+		"return_on_equity.lte": c.Query("return_on_equity.lte", ""),
+
+		"debt_to_equity":     c.Query("debt_to_equity", ""),
+		"debt_to_equity.gt":  c.Query("debt_to_equity.gt", ""),
+		"debt_to_equity.gte": c.Query("debt_to_equity.gte", ""),
+		"debt_to_equity.lt":  c.Query("debt_to_equity.lt", ""),
+		"debt_to_equity.lte": c.Query("debt_to_equity.lte", ""),
+
+		"current":     c.Query("current", ""),
+		"current.gt":  c.Query("current.gt", ""),
+		"current.gte": c.Query("current.gte", ""),
+		"current.lt":  c.Query("current.lt", ""),
+		"current.lte": c.Query("current.lte", ""),
+
+		"quick":     c.Query("quick", ""),
+		"quick.gt":  c.Query("quick.gt", ""),
+		"quick.gte": c.Query("quick.gte", ""),
+		"quick.lt":  c.Query("quick.lt", ""),
+		"quick.lte": c.Query("quick.lte", ""),
+
+		"cash":     c.Query("cash", ""),
+		"cash.gt":  c.Query("cash.gt", ""),
+		"cash.gte": c.Query("cash.gte", ""),
+		"cash.lt":  c.Query("cash.lt", ""),
+		"cash.lte": c.Query("cash.lte", ""),
+
+		"ev_to_sales":     c.Query("ev_to_sales", ""),
+		"ev_to_sales.gt":  c.Query("ev_to_sales.gt", ""),
+		"ev_to_sales.gte": c.Query("ev_to_sales.gte", ""),
+		"ev_to_sales.lt":  c.Query("ev_to_sales.lt", ""),
+		"ev_to_sales.lte": c.Query("ev_to_sales.lte", ""),
+
+		"ev_to_ebitda":     c.Query("ev_to_ebitda", ""),
+		"ev_to_ebitda.gt":  c.Query("ev_to_ebitda.gt", ""),
+		"ev_to_ebitda.gte": c.Query("ev_to_ebitda.gte", ""),
+		"ev_to_ebitda.lt":  c.Query("ev_to_ebitda.lt", ""),
+		"ev_to_ebitda.lte": c.Query("ev_to_ebitda.lte", ""),
+
+		"enterprise_value":     c.Query("enterprise_value", ""),
+		"enterprise_value.gt":  c.Query("enterprise_value.gt", ""),
+		"enterprise_value.gte": c.Query("enterprise_value.gte", ""),
+		"enterprise_value.lt":  c.Query("enterprise_value.lt", ""),
+		"enterprise_value.lte": c.Query("enterprise_value.lte", ""),
+
+		"free_cash_flow":     c.Query("free_cash_flow", ""),
+		"free_cash_flow.gt":  c.Query("free_cash_flow.gt", ""),
+		"free_cash_flow.gte": c.Query("free_cash_flow.gte", ""),
+		"free_cash_flow.lt":  c.Query("free_cash_flow.lt", ""),
+		"free_cash_flow.lte": c.Query("free_cash_flow.lte", ""),
+
+		"limit": c.Query("limit", ""),
+		"sort":  c.Query("sort", ""),
+	}
+
+	cacheKey := fmt.Sprintf(
+		"ratios:t=%s:tany=%s:tgt=%s:tgte=%s:tlt=%s:tlte=%s:cik=%s:cikany=%s:cikgt=%s:cikgte=%s:ciklt=%s:ciklte=%s:p=%s:pgt=%s:pgte=%s:plt=%s:plte=%s:av=%s:avgt=%s:avgte=%s:avlt=%s:avlte=%s:mc=%s:mcgt=%s:mcgte=%s:mclt=%s:mclte=%s:eps=%s:epsgt=%s:epsgte=%s:epslt=%s:epslte=%s:pe=%s:pegt=%s:pegte=%s:pelt=%s:pelte=%s:pb=%s:pbgt=%s:pbgte=%s:pblt=%s:pblte=%s:ps=%s:psgt=%s:psgte=%s:pslt=%s:pslte=%s:pcf=%s:pcfgt=%s:pcfgte=%s:pcflt=%s:pcflte=%s:pfcf=%s:pfcfgt=%s:pfcfgte=%s:pfcflt=%s:pfcflte=%s:dy=%s:dygt=%s:dygte=%s:dylt=%s:dylte=%s:roa=%s:roagt=%s:roagte=%s:roalt=%s:roalte=%s:roe=%s:roegt=%s:roegte=%s:roelt=%s:roelte=%s:de=%s:degt=%s:degte=%s:delt=%s:delte=%s:cur=%s:curgt=%s:curgte=%s:curlt=%s:curlte=%s:q=%s:qgt=%s:qgte=%s:qlt=%s:qlte=%s:c=%s:cgt=%s:cgte=%s:clt=%s:clte=%s:evs=%s:evsgt=%s:evsgte=%s:evslt=%s:evslte=%s:eve=%s:evegt=%s:evegte=%s:evelt=%s:evelte=%s:ev=%s:evgt=%s:evgte=%s:evlt=%s:evlte=%s:fcf=%s:fcfgt=%s:fcfgte=%s:fcflt=%s:fcflte=%s:lim=%s:sort=%s",
+		extra["ticker"], extra["ticker.any_of"], extra["ticker.gt"], extra["ticker.gte"], extra["ticker.lt"], extra["ticker.lte"],
+		extra["cik"], extra["cik.any_of"], extra["cik.gt"], extra["cik.gte"], extra["cik.lt"], extra["cik.lte"],
+		extra["price"], extra["price.gt"], extra["price.gte"], extra["price.lt"], extra["price.lte"],
+		extra["average_volume"], extra["average_volume.gt"], extra["average_volume.gte"], extra["average_volume.lt"], extra["average_volume.lte"],
+		extra["market_cap"], extra["market_cap.gt"], extra["market_cap.gte"], extra["market_cap.lt"], extra["market_cap.lte"],
+		extra["earnings_per_share"], extra["earnings_per_share.gt"], extra["earnings_per_share.gte"], extra["earnings_per_share.lt"], extra["earnings_per_share.lte"],
+		extra["price_to_earnings"], extra["price_to_earnings.gt"], extra["price_to_earnings.gte"], extra["price_to_earnings.lt"], extra["price_to_earnings.lte"],
+		extra["price_to_book"], extra["price_to_book.gt"], extra["price_to_book.gte"], extra["price_to_book.lt"], extra["price_to_book.lte"],
+		extra["price_to_sales"], extra["price_to_sales.gt"], extra["price_to_sales.gte"], extra["price_to_sales.lt"], extra["price_to_sales.lte"],
+		extra["price_to_cash_flow"], extra["price_to_cash_flow.gt"], extra["price_to_cash_flow.gte"], extra["price_to_cash_flow.lt"], extra["price_to_cash_flow.lte"],
+		extra["price_to_free_cash_flow"], extra["price_to_free_cash_flow.gt"], extra["price_to_free_cash_flow.gte"], extra["price_to_free_cash_flow.lt"], extra["price_to_free_cash_flow.lte"],
+		extra["dividend_yield"], extra["dividend_yield.gt"], extra["dividend_yield.gte"], extra["dividend_yield.lt"], extra["dividend_yield.lte"],
+		extra["return_on_assets"], extra["return_on_assets.gt"], extra["return_on_assets.gte"], extra["return_on_assets.lt"], extra["return_on_assets.lte"],
+		extra["return_on_equity"], extra["return_on_equity.gt"], extra["return_on_equity.gte"], extra["return_on_equity.lt"], extra["return_on_equity.lte"],
+		extra["debt_to_equity"], extra["debt_to_equity.gt"], extra["debt_to_equity.gte"], extra["debt_to_equity.lt"], extra["debt_to_equity.lte"],
+		extra["current"], extra["current.gt"], extra["current.gte"], extra["current.lt"], extra["current.lte"],
+		extra["quick"], extra["quick.gt"], extra["quick.gte"], extra["quick.lt"], extra["quick.lte"],
+		extra["cash"], extra["cash.gt"], extra["cash.gte"], extra["cash.lt"], extra["cash.lte"],
+		extra["ev_to_sales"], extra["ev_to_sales.gt"], extra["ev_to_sales.gte"], extra["ev_to_sales.lt"], extra["ev_to_sales.lte"],
+		extra["ev_to_ebitda"], extra["ev_to_ebitda.gt"], extra["ev_to_ebitda.gte"], extra["ev_to_ebitda.lt"], extra["ev_to_ebitda.lte"],
+		extra["enterprise_value"], extra["enterprise_value.gt"], extra["enterprise_value.gte"], extra["enterprise_value.lt"], extra["enterprise_value.lte"],
+		extra["free_cash_flow"], extra["free_cash_flow.gt"], extra["free_cash_flow.gte"], extra["free_cash_flow.lt"], extra["free_cash_flow.lte"],
+		extra["limit"], extra["sort"],
+	)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.massive.GetRatios(extra)
+	})
+}
+
+func (h *Handler) GetTickerSnapshot(c *fiber.Ctx) error {
+	stocksTicker := c.Params("stocksTicker")
+	if stocksTicker == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "stocksTicker is required"})
+	}
+
+	cacheKey := fmt.Sprintf("snapshot:ticker:%s", stocksTicker)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.massive.GetTickerSnapshot(stocksTicker)
+	})
+}
