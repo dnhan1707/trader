@@ -53,6 +53,7 @@ func main() {
 	app.Get("/api/news", handler.GetNews)
 	app.Get("/api/stocks/ratios", handler.GetRatios)
 	app.Get("/api/snapshot/stocks/tickers/:stocksTicker", handler.GetTickerSnapshot)
+	app.Get("/api/stocks/:stocksTicker/52week", handler.Get52WeekStats)
 
 	// WebSocket route
 	app.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
