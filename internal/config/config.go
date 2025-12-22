@@ -16,6 +16,8 @@ type Config struct {
 	RedisDB     int
 	Port        string
 	CacheTTL    int
+	DB_USER     string
+	DB_PASSWORD string
 }
 
 func Load() *Config {
@@ -32,6 +34,8 @@ func Load() *Config {
 		RedisDB:     db,
 		Port:        getenv("PORT", "8080"),
 		CacheTTL:    ttl,
+		DB_USER:     getenv("DB_USER", ""),
+		DB_PASSWORD: getenv("DB_PASSWORD", ""),
 	}
 
 	if c.MassiveKey == "" {

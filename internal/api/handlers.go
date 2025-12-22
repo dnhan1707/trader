@@ -8,16 +8,22 @@ import (
 
 	"github.com/dnhan1707/trader/internal/cache"
 	"github.com/dnhan1707/trader/internal/massive"
+	"github.com/dnhan1707/trader/internal/services"
 	"github.com/gofiber/fiber/v2"
 )
 
 type Handler struct {
-	cache   *cache.Cache
-	massive *massive.Client
+	cache            *cache.Cache
+	massive          *massive.Client
+	institutionalSvc *services.InstitutionalOwnershipService
 }
 
-func New(c *cache.Cache, m *massive.Client) *Handler {
-	return &Handler{cache: c, massive: m}
+func New(c *cache.Cache, m *massive.Client, inst *services.InstitutionalOwnershipService) *Handler {
+	return &Handler{
+		cache:            c,
+		massive:          m,
+		institutionalSvc: inst,
+	}
 }
 
 // cachedJSON: unified cache -> fetch -> async set -> respond flow
@@ -766,5 +772,98 @@ func (h *Handler) GetTickerSnapshot(c *fiber.Ctx) error {
 
 	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
 		return h.massive.GetTickerSnapshot(stocksTicker)
+	})
+}
+
+func (h *Handler) GetTopOwners(c *fiber.Ctx) error {
+	ticker := c.Query("ticker")
+	year := c.Query("year")
+	quarter := c.Query("quarter")
+	nStr := c.Query("n", "10")
+
+	if ticker == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "ticker query parameter is required"})
+	}
+	if year == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "year query parameter is required"})
+	}
+	if quarter == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "quarter query parameter is required"})
+	}
+
+	n := 10
+	if _, err := fmt.Sscanf(nStr, "%d", &n); err != nil || n <= 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "n must be a positive integer"})
+	}
+
+	cacheKey := fmt.Sprintf("top-owners:%s:%s:%s:%d", ticker, year, quarter, n)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.institutionalSvc.TopNSharesOwner(c.Context(), ticker, year, quarter, n)
+	})
+}
+
+func (h *Handler) GetIncomeStatements(c *fiber.Ctx) error {
+	extra := map[string]string{
+		"cik":        c.Query("cik", ""),
+		"cik.any_of": c.Query("cik.any_of", ""),
+		"cik.gt":     c.Query("cik.gt", ""),
+		"cik.gte":    c.Query("cik.gte", ""),
+		"cik.lt":     c.Query("cik.lt", ""),
+		"cik.lte":    c.Query("cik.lte", ""),
+
+		"tickers":        c.Query("tickers", ""),
+		"tickers.all_of": c.Query("tickers.all_of", ""),
+		"tickers.any_of": c.Query("tickers.any_of", ""),
+
+		"period_end":     c.Query("period_end", ""),
+		"period_end.gt":  c.Query("period_end.gt", ""),
+		"period_end.gte": c.Query("period_end.gte", ""),
+		"period_end.lt":  c.Query("period_end.lt", ""),
+		"period_end.lte": c.Query("period_end.lte", ""),
+
+		"filing_date":     c.Query("filing_date", ""),
+		"filing_date.gt":  c.Query("filing_date.gt", ""),
+		"filing_date.gte": c.Query("filing_date.gte", ""),
+		"filing_date.lt":  c.Query("filing_date.lt", ""),
+		"filing_date.lte": c.Query("filing_date.lte", ""),
+
+		"fiscal_year":     c.Query("fiscal_year", ""),
+		"fiscal_year.gt":  c.Query("fiscal_year.gt", ""),
+		"fiscal_year.gte": c.Query("fiscal_year.gte", ""),
+		"fiscal_year.lt":  c.Query("fiscal_year.lt", ""),
+		"fiscal_year.lte": c.Query("fiscal_year.lte", ""),
+
+		"fiscal_quarter":     c.Query("fiscal_quarter", ""),
+		"fiscal_quarter.gt":  c.Query("fiscal_quarter.gt", ""),
+		"fiscal_quarter.gte": c.Query("fiscal_quarter.gte", ""),
+		"fiscal_quarter.lt":  c.Query("fiscal_quarter.lt", ""),
+		"fiscal_quarter.lte": c.Query("fiscal_quarter.lte", ""),
+
+		"timeframe":        c.Query("timeframe", ""),
+		"timeframe.any_of": c.Query("timeframe.any_of", ""),
+		"timeframe.gt":     c.Query("timeframe.gt", ""),
+		"timeframe.gte":    c.Query("timeframe.gte", ""),
+		"timeframe.lt":     c.Query("timeframe.lt", ""),
+		"timeframe.lte":    c.Query("timeframe.lte", ""),
+
+		"limit": c.Query("limit", ""),
+		"sort":  c.Query("sort", ""),
+	}
+
+	cacheKey := fmt.Sprintf(
+		"income-statements:cik=%s:cikany=%s:cikgt=%s:cikgte=%s:ciklt=%s:ciklte=%s:t=%s:tall=%s:tany=%s:pe=%s:pegt=%s:pegte=%s:pelt=%s:pelte=%s:fd=%s:fdgt=%s:fdgte=%s:fdlt=%s:fdlte=%s:fy=%s:fygt=%s:fygte=%s:fylt=%s:fylte=%s:fq=%s:fqgt=%s:fqgte=%s:fqlt=%s:fqlte=%s:tf=%s:tfany=%s:tfgt=%s:tfgte=%s:tflt=%s:tflte=%s:limit=%s:sort=%s",
+		extra["cik"], extra["cik.any_of"], extra["cik.gt"], extra["cik.gte"], extra["cik.lt"], extra["cik.lte"],
+		extra["tickers"], extra["tickers.all_of"], extra["tickers.any_of"],
+		extra["period_end"], extra["period_end.gt"], extra["period_end.gte"], extra["period_end.lt"], extra["period_end.lte"],
+		extra["filing_date"], extra["filing_date.gt"], extra["filing_date.gte"], extra["filing_date.lt"], extra["filing_date.lte"],
+		extra["fiscal_year"], extra["fiscal_year.gt"], extra["fiscal_year.gte"], extra["fiscal_year.lt"], extra["fiscal_year.lte"],
+		extra["fiscal_quarter"], extra["fiscal_quarter.gt"], extra["fiscal_quarter.gte"], extra["fiscal_quarter.lt"], extra["fiscal_quarter.lte"],
+		extra["timeframe"], extra["timeframe.any_of"], extra["timeframe.gt"], extra["timeframe.gte"], extra["timeframe.lt"], extra["timeframe.lte"],
+		extra["limit"], extra["sort"],
+	)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.massive.GetIncomeStatements(extra)
 	})
 }

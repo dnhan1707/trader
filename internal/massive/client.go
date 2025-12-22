@@ -183,3 +183,8 @@ func (c *Client) GetTickerSnapshot(stocksTicker string) (map[string]interface{},
 	full := c.buildURL(fmt.Sprintf("/v2/snapshot/locale/us/markets/stocks/tickers/%s", stocksTicker), nil)
 	return c.fetchRaw(full)
 }
+
+func (c *Client) GetIncomeStatements(extra map[string]string) (map[string]interface{}, error) {
+	full := c.buildURL("/stocks/financials/v1/income-statements", extra)
+	return c.fetchRaw(full)
+}

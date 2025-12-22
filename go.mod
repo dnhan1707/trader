@@ -5,6 +5,7 @@ go 1.25.4
 require (
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
@@ -15,9 +16,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fasthttp/websocket v1.5.8 // indirect
-	github.com/gofiber/contrib/websocket v1.3.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/lib/pq v1.10.9
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
