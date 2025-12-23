@@ -1,14 +1,17 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 
 	"github.com/dnhan1707/trader/internal/api"
 	"github.com/dnhan1707/trader/internal/cache"
 	"github.com/dnhan1707/trader/internal/config"
 	"github.com/dnhan1707/trader/internal/massive"
+	"github.com/dnhan1707/trader/internal/services"
 	"github.com/dnhan1707/trader/internal/ws"
 	"github.com/gofiber/fiber/v2"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -17,8 +20,17 @@ func main() {
 	cacheClient := cache.New(cfg.RedisAddr, cfg.RedisPass, cfg.RedisDB, cfg.CacheTTL)
 	defer cacheClient.Close()
 
+	dsn := "postgres://trader_app:trader_app_123@localhost:5434/13f_filings?sslmode=disable"
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatal("open db:", err)
+	}
+	defer db.Close()
+
 	massiveClient := massive.New(cfg.MassiveBase, cfg.MassiveKey)
-	handler := api.New(cacheClient, massiveClient)
+	instSvc := services.NewInstitutionalOwnershipService(db, massiveClient)
+
+	handler := api.New(cacheClient, massiveClient, instSvc)
 
 	// Websocket initialization
 	hub := ws.NewHub()
@@ -54,6 +66,9 @@ func main() {
 	app.Get("/api/stocks/ratios", handler.GetRatios)
 	app.Get("/api/snapshot/stocks/tickers/:stocksTicker", handler.GetTickerSnapshot)
 	app.Get("/api/stocks/:stocksTicker/52week", handler.Get52WeekStats)
+	app.Get("/api/institutional/top-owners", handler.GetTopOwners)
+	app.Get("/api/stocks/financials/income-statements", handler.GetIncomeStatements)
+	app.Get("/api/stocks/ownership", handler.GetTopOwners)
 
 	// WebSocket route
 	app.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))

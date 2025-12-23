@@ -27,6 +27,9 @@ go.work.sum
 .env.*.local
 .env.* 
 
+# /internal/database/config
+/internal/database/dataset
+
 # Editor/IDE
 .vscode/
 .idea/

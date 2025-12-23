@@ -1,0 +1,40 @@
+# List running container
+docker ps
+
+
+# List docker image
+docker images
+
+
+# Stop a container
+docker stop container-name-or-id
+
+
+# Run a container
+docker run image-name
+
+
+# Verify docker compose working
+docker-compose config
+
+
+# To run docker compose
+docker-compose --env-file .env up
+
+
+# Run the setup
+docker-compose up -d
+docker cp internal/database/config/setup.sql trader-container:/setup.sql
+docker exec -i trader-container psql -U ${DB_USER} -d 13f_filings -f /setup.sql
+
+# Connect to database
+docker exec -it trader-container psql -U ${DB_USER} -d 13f_filings
+
+# Complete cleanup (container + volumes + networks)
+docker stop container-name
+docker rm -v container-name
+docker volume prune
+
+
+Connection is at:
+dsn := fmt.Sprintf("postgres://%s:%s@127.0.0.1:5434/13f_filings?sslmode=disable", c.DB_USER, c.DB_PASSWORD)
