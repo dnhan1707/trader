@@ -777,29 +777,23 @@ func (h *Handler) GetTickerSnapshot(c *fiber.Ctx) error {
 
 func (h *Handler) GetTopOwners(c *fiber.Ctx) error {
 	ticker := c.Query("ticker")
-	year := c.Query("year")
-	quarter := c.Query("quarter")
-	nStr := c.Query("n", "10")
+	companyName := c.Query("companyName")
+	limit := c.QueryInt("limit")
 
 	if ticker == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "ticker query parameter is required"})
 	}
-	if year == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "year query parameter is required"})
+	if companyName == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "companyName query parameter is required"})
 	}
-	if quarter == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "quarter query parameter is required"})
-	}
-
-	n := 10
-	if _, err := fmt.Sscanf(nStr, "%d", &n); err != nil || n <= 0 {
-		return c.Status(400).JSON(fiber.Map{"error": "n must be a positive integer"})
+	if limit <= 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "limit query parameter cannot be 0 or less"})
 	}
 
-	cacheKey := fmt.Sprintf("top-owners:%s:%s:%s:%d", ticker, year, quarter, n)
+	cacheKey := fmt.Sprintf("top-owners:%s", ticker)
 
 	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
-		return h.institutionalSvc.TopNSharesOwner(c.Context(), ticker, year, quarter, n)
+		return h.institutionalSvc.GetTopOwnersByNameWithTicker(companyName, ticker, limit)
 	})
 }
 

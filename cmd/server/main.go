@@ -68,6 +68,7 @@ func main() {
 	app.Get("/api/stocks/:stocksTicker/52week", handler.Get52WeekStats)
 	app.Get("/api/institutional/top-owners", handler.GetTopOwners)
 	app.Get("/api/stocks/financials/income-statements", handler.GetIncomeStatements)
+	app.Get("/api/stocks/ownership", handler.GetTopOwners)
 
 	// WebSocket route
 	app.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
