@@ -7,6 +7,7 @@ import (
 	"github.com/dnhan1707/trader/internal/api"
 	"github.com/dnhan1707/trader/internal/cache"
 	"github.com/dnhan1707/trader/internal/config"
+	"github.com/dnhan1707/trader/internal/eodhd"
 	"github.com/dnhan1707/trader/internal/massive"
 	"github.com/dnhan1707/trader/internal/services"
 	"github.com/dnhan1707/trader/internal/ws"
@@ -28,9 +29,11 @@ func main() {
 	defer db.Close()
 
 	massiveClient := massive.New(cfg.MassiveBase, cfg.MassiveKey)
-	instSvc := services.NewInstitutionalOwnershipService(db, massiveClient)
+	eodhClient := eodhd.New(cfg.EODHD_BASE, cfg.EODHD_API_KEY)
+	instSvc := services.NewInstitutionalOwnershipService(db, massiveClient, eodhClient)
+	insiderSvc := services.NewInsiderOwnershipService(db, massiveClient)
 
-	handler := api.New(cacheClient, massiveClient, instSvc)
+	handler := api.New(cacheClient, massiveClient, instSvc, insiderSvc)
 
 	// Websocket initialization
 	hub := ws.NewHub()
@@ -66,9 +69,10 @@ func main() {
 	app.Get("/api/stocks/ratios", handler.GetRatios)
 	app.Get("/api/snapshot/stocks/tickers/:stocksTicker", handler.GetTickerSnapshot)
 	app.Get("/api/stocks/:stocksTicker/52week", handler.Get52WeekStats)
-	app.Get("/api/institutional/top-owners", handler.GetTopOwners)
 	app.Get("/api/stocks/financials/income-statements", handler.GetIncomeStatements)
 	app.Get("/api/stocks/ownership", handler.GetTopOwners)
+	app.Get("/api/stocks/ownership/cusip", handler.GetTopOwnersByCusip)
+	app.Get("/api/stocks/insiders", handler.GetTopInsiders)
 
 	// WebSocket route
 	app.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))

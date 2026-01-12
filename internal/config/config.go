@@ -9,33 +9,37 @@ import (
 )
 
 type Config struct {
-	MassiveKey  string
-	MassiveBase string
-	RedisAddr   string
-	RedisPass   string
-	RedisDB     int
-	Port        string
-	CacheTTL    int
-	DB_USER     string
-	DB_PASSWORD string
+	MassiveKey    string
+	MassiveBase   string
+	RedisAddr     string
+	RedisPass     string
+	RedisDB       int
+	Port          string
+	CacheTTL      int
+	DB_USER       string
+	DB_PASSWORD   string
+	EODHD_API_KEY string
+	EODHD_BASE    string
 }
 
 func Load() *Config {
 	_ = godotenv.Load()
 
 	db, _ := strconv.Atoi(getenv("REDIS_DB", "0"))
-	ttl, _ := strconv.Atoi(getenv("CACHE_TTL_SECONDS", "30"))
+	ttl, _ := strconv.Atoi(getenv("CACHE_TTL_SECONDS", "1"))
 
 	c := &Config{
-		MassiveKey:  getenv("MASSIVE_API_KEY", ""),
-		MassiveBase: getenv("MASSIVE_BASE", "https://api.massive.com/v1"),
-		RedisAddr:   getenv("REDIS_ADDR", "localhost:6379"),
-		RedisPass:   getenv("REDIS_PASSWORD", ""),
-		RedisDB:     db,
-		Port:        getenv("PORT", "8080"),
-		CacheTTL:    ttl,
-		DB_USER:     getenv("DB_USER", ""),
-		DB_PASSWORD: getenv("DB_PASSWORD", ""),
+		MassiveKey:    getenv("MASSIVE_API_KEY", ""),
+		MassiveBase:   getenv("MASSIVE_BASE", "https://api.massive.com/v1"),
+		RedisAddr:     getenv("REDIS_ADDR", "localhost:6379"),
+		RedisPass:     getenv("REDIS_PASSWORD", ""),
+		RedisDB:       db,
+		Port:          getenv("PORT", "8080"),
+		CacheTTL:      ttl,
+		DB_USER:       getenv("DB_USER", ""),
+		DB_PASSWORD:   getenv("DB_PASSWORD", ""),
+		EODHD_API_KEY: getenv("EODHD_API_KEY", ""),
+		EODHD_BASE:    getenv("EODHD_BASE", ""),
 	}
 
 	if c.MassiveKey == "" {

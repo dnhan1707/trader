@@ -10,19 +10,22 @@ import (
 	"github.com/dnhan1707/trader/internal/massive"
 	"github.com/dnhan1707/trader/internal/services"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 )
 
 type Handler struct {
 	cache            *cache.Cache
 	massive          *massive.Client
 	institutionalSvc *services.InstitutionalOwnershipService
+	insiderSvc       *services.InsiderOwnershipService
 }
 
-func New(c *cache.Cache, m *massive.Client, inst *services.InstitutionalOwnershipService) *Handler {
+func New(c *cache.Cache, m *massive.Client, inst *services.InstitutionalOwnershipService, insider *services.InsiderOwnershipService) *Handler {
 	return &Handler{
 		cache:            c,
 		massive:          m,
 		institutionalSvc: inst,
+		insiderSvc:       insider,
 	}
 }
 
@@ -790,10 +793,56 @@ func (h *Handler) GetTopOwners(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "limit query parameter cannot be 0 or less"})
 	}
 
-	cacheKey := fmt.Sprintf("top-owners:%s", ticker)
+	// Convert + back to spaces for URL encoding
+	companyName = strings.ReplaceAll(companyName, "+", " ")
+
+	log.Debug(fmt.Sprintf("TopOwner - Company name query = %s", companyName))
+	cacheKey := fmt.Sprintf("top-owners:%s:%s", ticker, companyName)
 
 	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
 		return h.institutionalSvc.GetTopOwnersByNameWithTicker(companyName, ticker, limit)
+	})
+}
+
+func (h *Handler) GetTopOwnersByCusip(c *fiber.Ctx) error {
+	ticker := c.Query("ticker")
+	limit := c.QueryInt("limit")
+
+	if ticker == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "ticker query parameter is required"})
+	}
+	if limit <= 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "limit query parameter cannot be 0 or less"})
+	}
+
+	log.Debug(fmt.Sprintf("TopOwnersByCusip - Ticker query = %s", ticker))
+	cacheKey := fmt.Sprintf("top-owners-cusip:%s:%d", ticker, limit)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.institutionalSvc.GetTopOwnersByCusip(ticker, limit)
+	})
+}
+
+func (h *Handler) GetTopInsiders(c *fiber.Ctx) error {
+	ticker := c.Query("ticker")
+	startYear := c.QueryInt("startYear")
+	limit := c.QueryInt("limit")
+
+	if ticker == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "ticker query parameter is required"})
+	}
+	if startYear <= 0 {
+		startYear = 2020 // default to recent activity
+	}
+	if limit <= 0 {
+		limit = 10 // default limit
+	}
+
+	log.Debug(fmt.Sprintf("TopInsiders - Ticker = %s, StartYear = %d", ticker, startYear))
+	cacheKey := fmt.Sprintf("top-insiders:%s:%d:%d", ticker, startYear, limit)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.insiderSvc.GetTopInsidersFiltered(ticker, startYear, limit)
 	})
 }
 
