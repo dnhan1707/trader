@@ -3,13 +3,16 @@ package services
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 
+	"github.com/dnhan1707/trader/internal/eodhd"
 	"github.com/dnhan1707/trader/internal/massive"
 )
 
 type InstitutionalOwnershipService struct {
 	db      *sql.DB
 	massive *massive.Client
+	eodhd   *eodhd.Client
 }
 
 type TopOwner struct {
@@ -32,10 +35,19 @@ type CompanyDetail struct {
 	SharesOutstanding int64   `json:"shares_outstanding"`
 }
 
-func NewInstitutionalOwnershipService(db *sql.DB, massive *massive.Client) *InstitutionalOwnershipService {
+type TopOwnerByCusipResponse struct {
+	CUSIP        string     `json:"cusip"`
+	CompanyName  string     `json:"company_name"`
+	Ticker       string     `json:"ticker"`
+	ImpliedPrice float64    `json:"implied_price"`
+	TopOwners    []TopOwner `json:"top_owners"`
+}
+
+func NewInstitutionalOwnershipService(db *sql.DB, massive *massive.Client, eodhd *eodhd.Client) *InstitutionalOwnershipService {
 	return &InstitutionalOwnershipService{
 		db:      db,
 		massive: massive,
+		eodhd:   eodhd,
 	}
 }
 
@@ -122,6 +134,8 @@ func (s *InstitutionalOwnershipService) GetTopOwnersByName(companyName string, l
 	return response, nil
 }
 
+// func (s *InstitutionalOwnershipService) GetTopOwnerByCusip(cusip string) ()
+
 func (s *InstitutionalOwnershipService) GetCompanyByTicker(ticker string) (*CompanyDetail, error) {
 	tickerDetail, err := s.massive.GetTickerDetails(ticker)
 	if err != nil {
@@ -207,4 +221,146 @@ func (s *InstitutionalOwnershipService) GetTopOwnersByNameWithTicker(companyName
 	}
 
 	return response, nil
+}
+
+// GetTopOwnersByCusip gets top owners by ticker using CUSIP lookup
+func (s *InstitutionalOwnershipService) GetTopOwnersByCusip(ticker string, limit int) (*TopOwnerByCusipResponse, error) {
+	// 1. Get CUSIP from ticker using EODHD API
+	cusip, err := s.eodhd.GetCusipByTicker(ticker)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CUSIP for ticker %s: %w", ticker, err)
+	}
+
+	// 2. Query database by CUSIP
+	query := `
+		SELECT 
+			cusip,
+			name_of_issuer,
+			manager_name,
+			shares_held,
+			total_value_usd
+		FROM institutional_ownership 
+		WHERE cusip = $1 
+		AND shares_held > 0 
+		AND total_value_usd > 0
+		ORDER BY shares_held DESC
+	`
+
+	rows, err := s.db.Query(query, cusip)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query database for CUSIP %s: %w", cusip, err)
+	}
+	defer rows.Close()
+
+	var owners []TopOwner
+	var companyName string
+	var cusipResult string
+
+	for rows.Next() {
+		var owner TopOwner
+		err := rows.Scan(
+			&cusipResult,
+			&companyName,
+			&owner.ManagerName,
+			&owner.SharesHeld,
+			&owner.TotalValueUSD,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		owners = append(owners, owner)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+
+	if len(owners) == 0 {
+		return nil, fmt.Errorf("no owners found for CUSIP: %s", cusip)
+	}
+
+	// 3. Calculate implied prices and handle scaling
+	for i := range owners {
+		if owners[i].SharesHeld > 0 {
+			// Calculate implied price (VALUE / SHARES)
+			impliedPrice := owners[i].TotalValueUSD / float64(owners[i].SharesHeld)
+			owners[i].TotalValueUSD = impliedPrice // Store implied price temporarily
+		}
+	}
+
+	// Calculate median implied price for scaling fix
+	prices := make([]float64, 0, len(owners))
+	for _, owner := range owners {
+		if owner.TotalValueUSD > 0 {
+			prices = append(prices, owner.TotalValueUSD)
+		}
+	}
+
+	if len(prices) > 0 {
+		sort.Float64s(prices)
+		medianPrice := prices[len(prices)/2]
+		threshold := medianPrice * 0.1
+
+		// 4. Fix scaling issues - if implied price < 10% of median, multiply original value by 1000
+		for i := range owners {
+			originalValue := owners[i].TotalValueUSD * float64(owners[i].SharesHeld) // Get back original value
+			impliedPrice := owners[i].TotalValueUSD
+
+			if impliedPrice > 0 && impliedPrice < threshold {
+				// Apply scaling fix
+				owners[i].TotalValueUSD = originalValue * 1000
+			} else {
+				// Restore original value
+				owners[i].TotalValueUSD = originalValue
+			}
+		}
+
+		// 5. Recalculate final implied price after scaling fix
+		finalImpliedPrice := 0.0
+		if len(owners) > 0 && owners[0].SharesHeld > 0 {
+			finalImpliedPrice = owners[0].TotalValueUSD / float64(owners[0].SharesHeld)
+		}
+
+		// 6. Calculate ownership percentages
+		// Try to get actual shares outstanding from Massive API first
+		companyDetail, err := s.GetCompanyByTicker(ticker)
+		if err == nil && companyDetail.SharesOutstanding > 0 {
+			// Calculate real ownership percentage using actual shares outstanding
+			for i := range owners {
+				owners[i].Ownership = (float64(owners[i].SharesHeld) / float64(companyDetail.SharesOutstanding)) * 100
+			}
+		} else {
+			// Fallback: calculate ownership as percentage of total institutional holdings
+			totalInstitutionalShares := int64(0)
+			for _, owner := range owners {
+				totalInstitutionalShares += owner.SharesHeld
+			}
+			for i := range owners {
+				if totalInstitutionalShares > 0 {
+					owners[i].Ownership = (float64(owners[i].SharesHeld) / float64(totalInstitutionalShares)) * 100
+				}
+			}
+		}
+
+		// 7. Limit results
+		if limit > 0 && limit < len(owners) {
+			owners = owners[:limit]
+		}
+
+		return &TopOwnerByCusipResponse{
+			CUSIP:        cusip,
+			CompanyName:  companyName,
+			Ticker:       ticker,
+			ImpliedPrice: finalImpliedPrice,
+			TopOwners:    owners,
+		}, nil
+	}
+
+	return &TopOwnerByCusipResponse{
+		CUSIP:       cusip,
+		CompanyName: companyName,
+		Ticker:      ticker,
+		TopOwners:   owners,
+	}, nil
 }
