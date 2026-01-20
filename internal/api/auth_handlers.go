@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -25,10 +26,47 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+type signUpRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (h *AuthHandler) SignUp(c *fiber.Ctx) error {
+	var req signUpRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body", "details": err.Error()})
+	}
+	if req.Username == "" || req.Password == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "username and password required"})
+	}
+
+	// Check if user already exists
+	if _, err := h.authService.GetByUsername(context.Background(), req.Username); err == nil {
+		return c.Status(http.StatusConflict).JSON(fiber.Map{"error": "username already exists"})
+	} else if err != sql.ErrNoRows {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "could not check username"})
+	}
+
+	user, err := h.authService.CreateUser(context.Background(), req.Username, req.Password)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "could not create user"})
+	}
+
+	return c.Status(http.StatusCreated).JSON(fiber.Map{
+		"user": fiber.Map{
+			"id":       user.ID,
+			"username": user.Username,
+		},
+	})
+}
+
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req loginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body", "details": err.Error()})
+	}
+	if req.Username == "" || req.Password == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "username and password required"})
 	}
 
 	u, err := h.authService.GetByUsername(context.Background(), req.Username)
@@ -59,6 +97,5 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) Logout(c *fiber.Ctx) error {
-	// JWT-only logout: client just drops the token
 	return c.SendStatus(http.StatusNoContent)
 }

@@ -33,6 +33,26 @@ func (s *AuthService) GetByUsername(ctx context.Context, username string) (*User
 	return &u, nil
 }
 
+func (s *AuthService) CreateUser(ctx context.Context, username, password string) (*User, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	var u User
+	err = s.db.QueryRowContext(ctx,
+		`INSERT INTO users (username, password)
+         VALUES ($1, $2)
+         RETURNING id, username, password`,
+		username, string(hash),
+	).Scan(&u.ID, &u.Username, &u.PasswordHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &u, nil
+}
+
 func (s *AuthService) CheckPassword(u *User, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
 }
