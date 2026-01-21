@@ -8,6 +8,7 @@ import (
 	"github.com/dnhan1707/trader/internal/auth"
 	"github.com/dnhan1707/trader/internal/cache"
 	"github.com/dnhan1707/trader/internal/config"
+	"github.com/dnhan1707/trader/internal/dmws"
 	"github.com/dnhan1707/trader/internal/eodhd"
 	"github.com/dnhan1707/trader/internal/massive"
 	"github.com/dnhan1707/trader/internal/services"
@@ -37,8 +38,9 @@ func main() {
 	instSvc := services.NewInstitutionalOwnershipService(db, massiveClient, eodhClient)
 	insiderSvc := services.NewInsiderOwnershipService(db, massiveClient)
 	authService := services.NewAuthService(db)
+	dmService := services.NewDMService(db)
 	authHandler := api.NewAuthHandler(authService, cfg.JwtSecret, cfg.JwtExpiresIn)
-
+	dmHandler := api.NewDMHandler(dmService)
 	handler := api.New(cacheClient, massiveClient, instSvc, insiderSvc)
 
 	// Websocket initialization
@@ -66,6 +68,14 @@ func main() {
 	// Protect all other /api routes
 	apiGroup := app.Group("/api", auth.Middleware(cfg.JwtSecret))
 
+	// DM chat routes (1:1)
+	chatGroup := apiGroup.Group("/chat")
+	chatGroup.Post("/dm/thread", dmHandler.CreateThread)
+	chatGroup.Post("/dm/threads/:threadId/messages", dmHandler.SendMessage)
+	chatGroup.Get("/dm/threads/:threadId/messages", dmHandler.ListMessages)
+	chatGroup.Get("/dm/threads", dmHandler.ListThreads)
+	chatGroup.Post("/dm/threads/:threadId/read", dmHandler.MarkThreadRead)
+
 	apiGroup.Get("/tickers/:symbol", handler.GetTickerDetails)
 	// app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
 	apiGroup.Get("/indicators/sma/:stocksTicker", handler.GetSMA)
@@ -89,8 +99,11 @@ func main() {
 	apiGroup.Get("/stocks/ownership/cusip", handler.GetTopOwnersByCusip)
 	apiGroup.Get("/stocks/insiders", handler.GetTopInsiders)
 
-	// WebSocket route
-	app.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
+	// user search for starting DMs
+	apiGroup.Get("/chat/users/search", dmHandler.SearchUsers)
 
+	// WebSocket route
+	apiGroup.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
+	apiGroup.Get("/ws/dm", dmws.NewDMWebsocketHandler(dmService, cfg.JwtSecret))
 	log.Fatal(app.Listen(":" + cfg.Port))
 }
