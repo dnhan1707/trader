@@ -5,7 +5,9 @@ import (
 	"log"
 
 	"github.com/dnhan1707/trader/internal/api"
+	"github.com/dnhan1707/trader/internal/auth"
 	"github.com/dnhan1707/trader/internal/cache"
+	"github.com/dnhan1707/trader/internal/chat"
 	"github.com/dnhan1707/trader/internal/config"
 	"github.com/dnhan1707/trader/internal/eodhd"
 	"github.com/dnhan1707/trader/internal/massive"
@@ -18,9 +20,11 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Redis Cache
 	cacheClient := cache.New(cfg.RedisAddr, cfg.RedisPass, cfg.RedisDB, cfg.CacheTTL)
 	defer cacheClient.Close()
 
+	// Postgres Connection
 	dsn := "postgres://trader_app:trader_app_123@localhost:5434/13f_filings?sslmode=disable"
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -28,11 +32,15 @@ func main() {
 	}
 	defer db.Close()
 
+	// Handlers Setup
 	massiveClient := massive.New(cfg.MassiveBase, cfg.MassiveKey)
 	eodhClient := eodhd.New(cfg.EODHD_BASE, cfg.EODHD_API_KEY)
 	instSvc := services.NewInstitutionalOwnershipService(db, massiveClient, eodhClient)
 	insiderSvc := services.NewInsiderOwnershipService(db, massiveClient)
-
+	authService := services.NewAuthService(db)
+	dmService := services.NewDMService(db)
+	authHandler := api.NewAuthHandler(authService, cfg.JwtSecret, cfg.JwtExpiresIn)
+	dmHandler := api.NewDMHandler(dmService)
 	handler := api.New(cacheClient, massiveClient, instSvc, insiderSvc)
 
 	// Websocket initialization
@@ -45,37 +53,61 @@ func main() {
 	go massive.ListenStocks(cfg.MassiveKey, hub, stockSubChan)
 	go massive.ListenIndices(cfg.MassiveKey, hub, indexSubChan)
 
+	// Fiber App
 	app := fiber.New()
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
 
-	app.Get("/api/tickers/:symbol", handler.GetTickerDetails)
+	// Public auth routes
+	app.Post("/api/auth/signup", authHandler.SignUp)
+	app.Post("/api/auth/login", authHandler.Login)
+	app.Post("/api/auth/logout", authHandler.Logout)
+
+	// Protect all other /api routes
+	apiGroup := app.Group("/api", auth.Middleware(cfg.JwtSecret))
+
+	// DM chat routes (1:1)
+	chatGroup := apiGroup.Group("/chat")
+	chatGroup.Post("/dm/thread", dmHandler.CreateThread)
+	chatGroup.Post("/dm/threads/:threadId/messages", dmHandler.SendMessage)
+	chatGroup.Get("/dm/threads/:threadId/messages", dmHandler.ListMessages)
+	chatGroup.Get("/dm/threads", dmHandler.ListThreads)
+	chatGroup.Post("/dm/threads/:threadId/read", dmHandler.MarkThreadRead)
+
+	apiGroup.Get("/tickers/:symbol", handler.GetTickerDetails)
 	// app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
-	app.Get("/api/indicators/sma/:stocksTicker", handler.GetSMA)
-	app.Get("/api/indicators/ema/:stocksTicker", handler.GetEMA)
-	app.Get("/api/indicators/macd/:stocksTicker", handler.GetMACD)
-	app.Get("/api/indicators/rsi/:stocksTicker", handler.GetRSI)
-	app.Get("/api/exchanges", handler.GetExchanges)
-	app.Get("/api/market/upcoming", handler.GetMarketHolidays)
-	app.Get("/api/market/now", handler.GetMarketStatus)
-	app.Get("/api/market/condition", handler.GetConditions)
-	app.Get("/api/ipos", handler.GetIPOs)
-	app.Get("/api/dividends", handler.GetDividends)
-	app.Get("/api/stocks/short-interest", handler.GetShortInterest)
-	app.Get("/api/stocks/short-volume", handler.GetShortVolume)
-	app.Get("/api/news", handler.GetNews)
-	app.Get("/api/stocks/ratios", handler.GetRatios)
-	app.Get("/api/snapshot/stocks/tickers/:stocksTicker", handler.GetTickerSnapshot)
-	app.Get("/api/stocks/:stocksTicker/52week", handler.Get52WeekStats)
-	app.Get("/api/stocks/financials/income-statements", handler.GetIncomeStatements)
-	app.Get("/api/stocks/ownership", handler.GetTopOwners)
-	app.Get("/api/stocks/ownership/cusip", handler.GetTopOwnersByCusip)
-	app.Get("/api/stocks/insiders", handler.GetTopInsiders)
+	apiGroup.Get("/indicators/sma/:stocksTicker", handler.GetSMA)
+	apiGroup.Get("/indicators/ema/:stocksTicker", handler.GetEMA)
+	apiGroup.Get("/indicators/macd/:stocksTicker", handler.GetMACD)
+	apiGroup.Get("/indicators/rsi/:stocksTicker", handler.GetRSI)
+	apiGroup.Get("/exchanges", handler.GetExchanges)
+	apiGroup.Get("/market/upcoming", handler.GetMarketHolidays)
+	apiGroup.Get("/market/now", handler.GetMarketStatus)
+	apiGroup.Get("/market/condition", handler.GetConditions)
+	apiGroup.Get("/ipos", handler.GetIPOs)
+	apiGroup.Get("/dividends", handler.GetDividends)
+	apiGroup.Get("/stocks/short-interest", handler.GetShortInterest)
+	apiGroup.Get("/stocks/short-volume", handler.GetShortVolume)
+	apiGroup.Get("/news", handler.GetNews)
+	apiGroup.Get("/stocks/ratios", handler.GetRatios)
+	apiGroup.Get("/snapshot/stocks/tickers/:stocksTicker", handler.GetTickerSnapshot)
+	apiGroup.Get("/stocks/:stocksTicker/52week", handler.Get52WeekStats)
+	apiGroup.Get("/stocks/financials/income-statements", handler.GetIncomeStatements)
+	apiGroup.Get("/stocks/ownership", handler.GetTopOwners)
+	apiGroup.Get("/stocks/ownership/cusip", handler.GetTopOwnersByCusip)
+	apiGroup.Get("/stocks/insiders", handler.GetTopInsiders)
+
+	// user search for starting DMs
+	apiGroup.Get("/chat/users/search", dmHandler.SearchUsers)
 
 	// WebSocket route
-	app.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
+	apiGroup.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
+	// apiGroup.Get("/ws/dm", dmws.NewDMWebsocketHandler(dmService, cfg.JwtSecret))
+
+	// Start simple WS chat server (rooms = DM thread IDs), non-blocking
+	go chat.Start(":8081", dmService)
 
 	log.Fatal(app.Listen(":" + cfg.Port))
 }

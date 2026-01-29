@@ -20,6 +20,8 @@ type Config struct {
 	DB_PASSWORD   string
 	EODHD_API_KEY string
 	EODHD_BASE    string
+	JwtSecret     string
+	JwtExpiresIn  string
 }
 
 func Load() *Config {
@@ -40,6 +42,8 @@ func Load() *Config {
 		DB_PASSWORD:   getenv("DB_PASSWORD", ""),
 		EODHD_API_KEY: getenv("EODHD_API_KEY", ""),
 		EODHD_BASE:    getenv("EODHD_BASE", ""),
+		JwtSecret:     getenv("JWT_SECRET", "dev-secret-change-me"),
+		JwtExpiresIn:  getenv("JWT_EXPIRES_IN", "1"),
 	}
 
 	if c.MassiveKey == "" {
