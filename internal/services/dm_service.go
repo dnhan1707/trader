@@ -28,6 +28,7 @@ type DMThreadSummary struct {
 	LastMessageContent string
 	LastMessageAt      time.Time
 	UnreadCount        int
+	HasMessages        bool
 }
 
 type UserSummary struct {
@@ -82,35 +83,36 @@ func (s *DMService) SearchUsers(ctx context.Context, q string, limit int) ([]Use
 // ListThreadSummariesForUser returns threads for a user with other user + last message.
 func (s *DMService) ListThreadSummariesForUser(ctx context.Context, userID string) ([]DMThreadSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `
-       SELECT
-            t.id,
-            CASE WHEN t.user1_id = $1 THEN t.user2_id ELSE t.user1_id END AS other_user_id,
-            u.username AS other_username,
-            COALESCE(m.content, '') AS last_message_content,
-            COALESCE(m.created_at, t.created_at) AS last_message_at,
-            COALESCE(ur.unread_count, 0) AS unread_count
-        FROM dm_threads t
-        JOIN users u
-          ON u.id = CASE WHEN t.user1_id = $1 THEN t.user2_id ELSE t.user1_id END
-        LEFT JOIN LATERAL (
-            SELECT content, created_at
-            FROM dm_messages
-            WHERE thread_id = t.id
-            ORDER BY created_at DESC
-            LIMIT 1
-        ) m ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT COUNT(*) AS unread_count
-            FROM dm_messages msg
-            LEFT JOIN dm_thread_reads r
-              ON r.thread_id = msg.thread_id AND r.user_id = $1
-            WHERE msg.thread_id = t.id
-              AND (r.last_read_at IS NULL OR msg.created_at > r.last_read_at)
-              AND msg.sender_id <> $1
-        ) ur ON TRUE
-        WHERE t.user1_id = $1 OR t.user2_id = $1
-        ORDER BY last_message_at DESC
-    `, userID)
+	   SELECT
+	        t.id,
+	        CASE WHEN t.user1_id = $1 THEN t.user2_id ELSE t.user1_id END AS other_user_id,
+	        u.username AS other_username,
+	        COALESCE(last_msg.content, '') AS last_message_content,
+	        COALESCE(last_msg.created_at, t.created_at) AS last_message_at,
+	        COALESCE(ur.unread_count, 0) AS unread_count,
+	        (last_msg.id IS NOT NULL) AS has_messages
+	    FROM dm_threads t
+	    JOIN users u
+	      ON u.id = CASE WHEN t.user1_id = $1 THEN t.user2_id ELSE t.user1_id END
+	    LEFT JOIN LATERAL (
+	        SELECT id, content, created_at
+	        FROM dm_messages
+	        WHERE thread_id = t.id
+	        ORDER BY created_at DESC
+	        LIMIT 1
+	    ) last_msg ON TRUE
+	    LEFT JOIN LATERAL (
+	        SELECT COUNT(*) AS unread_count
+	        FROM dm_messages msg
+	        LEFT JOIN dm_thread_reads r
+	          ON r.thread_id = msg.thread_id AND r.user_id = $1
+	        WHERE msg.thread_id = t.id
+	          AND (r.last_read_at IS NULL OR msg.created_at > r.last_read_at)
+	          AND msg.sender_id <> $1
+	    ) ur ON TRUE
+	    WHERE t.user1_id = $1 OR t.user2_id = $1
+	    ORDER BY last_message_at DESC
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +128,7 @@ func (s *DMService) ListThreadSummariesForUser(ctx context.Context, userID strin
 			&ssum.LastMessageContent,
 			&ssum.LastMessageAt,
 			&ssum.UnreadCount,
+			&ssum.HasMessages,
 		); err != nil {
 			return nil, err
 		}

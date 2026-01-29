@@ -7,8 +7,8 @@ import (
 	"github.com/dnhan1707/trader/internal/api"
 	"github.com/dnhan1707/trader/internal/auth"
 	"github.com/dnhan1707/trader/internal/cache"
+	"github.com/dnhan1707/trader/internal/chat"
 	"github.com/dnhan1707/trader/internal/config"
-	"github.com/dnhan1707/trader/internal/dmws"
 	"github.com/dnhan1707/trader/internal/eodhd"
 	"github.com/dnhan1707/trader/internal/massive"
 	"github.com/dnhan1707/trader/internal/services"
@@ -104,6 +104,10 @@ func main() {
 
 	// WebSocket route
 	apiGroup.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
-	apiGroup.Get("/ws/dm", dmws.NewDMWebsocketHandler(dmService, cfg.JwtSecret))
+	// apiGroup.Get("/ws/dm", dmws.NewDMWebsocketHandler(dmService, cfg.JwtSecret))
+
+	// Start simple WS chat server (rooms = DM thread IDs), non-blocking
+	go chat.Start(":8081", dmService)
+
 	log.Fatal(app.Listen(":" + cfg.Port))
 }
