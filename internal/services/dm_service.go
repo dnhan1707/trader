@@ -261,3 +261,16 @@ func (s *DMService) IsUserInThread(ctx context.Context, threadID, userID string)
 	}
 	return exists, nil
 }
+
+// GetUsernameByID returns the username for a given user ID.
+func (s *DMService) GetUsernameByID(ctx context.Context, userID string) (string, error) {
+	var username string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT username FROM users WHERE id = $1`,
+		userID,
+	).Scan(&username)
+	if err != nil {
+		return "", err
+	}
+	return username, nil
+}

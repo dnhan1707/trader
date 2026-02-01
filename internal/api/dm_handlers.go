@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dnhan1707/trader/internal/chat"
 	"github.com/dnhan1707/trader/internal/services"
 	"github.com/gofiber/fiber/v2"
 )
@@ -54,6 +55,13 @@ func (handler *DMHandler) CreateThread(ctx *fiber.Ctx) error {
 	thread, err := handler.dmService.GetOrCreateThreadForUsers(context.Background(), currentUserID, req.OtherUserID)
 	if err != nil {
 		return ctx.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "could not create thread"})
+	}
+
+	// Notify the other user via WebSocket about the new thread
+	currentUsername, err := handler.dmService.GetUsernameByID(context.Background(), currentUserID)
+	if err == nil {
+		// Best effort: if we can't get the username, we still return success
+		chat.NotifyThreadCreated(req.OtherUserID, thread.ID, currentUserID, currentUsername)
 	}
 
 	return ctx.JSON(thread)
