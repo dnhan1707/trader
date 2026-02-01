@@ -39,8 +39,10 @@ func main() {
 	insiderSvc := services.NewInsiderOwnershipService(db, massiveClient)
 	authService := services.NewAuthService(db)
 	dmService := services.NewDMService(db)
+	groupService := services.NewGroupService(db)
 	authHandler := api.NewAuthHandler(authService, cfg.JwtSecret, cfg.JwtExpiresIn)
 	dmHandler := api.NewDMHandler(dmService)
+	groupHandler := api.NewGroupHandler(groupService)
 	handler := api.New(cacheClient, massiveClient, instSvc, insiderSvc)
 
 	// Websocket initialization
@@ -68,13 +70,24 @@ func main() {
 	// Protect all other /api routes
 	apiGroup := app.Group("/api", auth.Middleware(cfg.JwtSecret))
 
-	// DM chat routes (1:1)
+	// DM chat routes (1:1) - requires auth
 	chatGroup := apiGroup.Group("/chat")
 	chatGroup.Post("/dm/thread", dmHandler.CreateThread)
 	chatGroup.Post("/dm/threads/:threadId/messages", dmHandler.SendMessage)
 	chatGroup.Get("/dm/threads/:threadId/messages", dmHandler.ListMessages)
 	chatGroup.Get("/dm/threads", dmHandler.ListThreads)
 	chatGroup.Post("/dm/threads/:threadId/read", dmHandler.MarkThreadRead)
+
+	// Group chat routes (multi-user) - PUBLIC, no auth required
+	groupChatGroup := app.Group("/api/chat/group")
+	groupChatGroup.Post("/thread", groupHandler.CreateGroupThread)
+	groupChatGroup.Get("/threads", groupHandler.ListGroupThreads)
+	groupChatGroup.Get("/threads/:threadId", groupHandler.GetGroupThread)
+	groupChatGroup.Post("/threads/:threadId/messages", groupHandler.SendGroupMessage)
+	groupChatGroup.Get("/threads/:threadId/messages", groupHandler.ListGroupMessages)
+	groupChatGroup.Post("/threads/:threadId/read", groupHandler.MarkGroupThreadRead)
+	groupChatGroup.Post("/threads/:threadId/members", groupHandler.AddMembers)
+	groupChatGroup.Post("/threads/:threadId/leave", groupHandler.LeaveGroup)
 
 	apiGroup.Get("/tickers/:symbol", handler.GetTickerDetails)
 	// app.Get("/api/aggs/ticker/:stocksTicker/range/:multiplier/:timespan/:from/:to", handler.GetCustomBars)
@@ -106,8 +119,8 @@ func main() {
 	apiGroup.Get("/ws", ws.NewHandler(hub, stockSubChan, indexSubChan))
 	// apiGroup.Get("/ws/dm", dmws.NewDMWebsocketHandler(dmService, cfg.JwtSecret))
 
-	// Start simple WS chat server (rooms = DM thread IDs), non-blocking
-	go chat.Start(":8081", dmService)
+	// Start simple WS chat server (rooms = DM/group thread IDs), non-blocking
+	go chat.Start(":8081", dmService, groupService)
 
 	log.Fatal(app.Listen(":" + cfg.Port))
 }
