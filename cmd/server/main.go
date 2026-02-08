@@ -110,6 +110,7 @@ func main() {
 	apiGroup.Get("/stocks/financials/income-statements", handler.GetIncomeStatements)
 	apiGroup.Get("/stocks/ownership", handler.GetTopOwners)
 	apiGroup.Get("/stocks/ownership/cusip", handler.GetTopOwnersByCusip)
+	apiGroup.Get("/stocks/ownership/cik", handler.GetHoldingsByCIK)
 	apiGroup.Get("/stocks/insiders", handler.GetTopInsiders)
 
 	// user search for starting DMs

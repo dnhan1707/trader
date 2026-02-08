@@ -43,6 +43,19 @@ type TopOwnerByCusipResponse struct {
 	TopOwners    []TopOwner `json:"top_owners"`
 }
 
+type Holding struct {
+	CUSIP         string  `json:"cusip"`
+	CompanyName   string  `json:"company_name"`
+	SharesHeld    int64   `json:"shares_held"`
+	TotalValueUSD float64 `json:"total_value_usd"`
+}
+
+type HoldingsByCIKResponse struct {
+	CIK         string    `json:"cik"`
+	ManagerName string    `json:"manager_name"`
+	TopHoldings []Holding `json:"top_holdings"`
+}
+
 func NewInstitutionalOwnershipService(db *sql.DB, massive *massive.Client, eodhd *eodhd.Client) *InstitutionalOwnershipService {
 	return &InstitutionalOwnershipService{
 		db:      db,
@@ -221,6 +234,76 @@ func (s *InstitutionalOwnershipService) GetTopOwnersByNameWithTicker(companyName
 	}
 
 	return response, nil
+}
+
+// GetHoldingsByManagerCIK gets top holdings for a specific manager identified by CIK
+func (s *InstitutionalOwnershipService) GetHoldingsByManagerCIK(cik string, limit int) (*HoldingsByCIKResponse, error) {
+	query := `
+		SELECT 
+			cik,
+			cusip,
+			name_of_issuer,
+			manager_name,
+			shares_held,
+			total_value_usd
+		FROM institutional_ownership 
+		WHERE cik = $1 
+		AND shares_held > 0 
+		AND total_value_usd > 0
+		ORDER BY total_value_usd DESC
+	`
+
+	rows, err := s.db.Query(query, cik)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query database for CIK %s: %w", cik, err)
+	}
+	defer rows.Close()
+
+	var holdings []Holding
+	var managerName string
+	var cikResult string
+
+	for rows.Next() {
+		var holding Holding
+		var mgr string
+		err := rows.Scan(
+			&cikResult,
+			&holding.CUSIP,
+			&holding.CompanyName,
+			&mgr,
+			&holding.SharesHeld,
+			&holding.TotalValueUSD,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		// Use the first manager name (they should all be the same for a given CIK)
+		if managerName == "" {
+			managerName = mgr
+		}
+
+		holdings = append(holdings, holding)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+
+	if len(holdings) == 0 {
+		return nil, fmt.Errorf("no holdings found for CIK: %s", cik)
+	}
+
+	// Limit results
+	if limit > 0 && limit < len(holdings) {
+		holdings = holdings[:limit]
+	}
+
+	return &HoldingsByCIKResponse{
+		CIK:         cik,
+		ManagerName: managerName,
+		TopHoldings: holdings,
+	}, nil
 }
 
 // GetTopOwnersByCusip gets top owners by ticker using CUSIP lookup

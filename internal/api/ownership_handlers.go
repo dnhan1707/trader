@@ -52,6 +52,25 @@ func (h *Handler) GetTopOwnersByCusip(c *fiber.Ctx) error {
 	})
 }
 
+func (h *Handler) GetHoldingsByCIK(c *fiber.Ctx) error {
+	cik := c.Query("cik")
+	limit := c.QueryInt("limit")
+
+	if cik == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "cik query parameter is required"})
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	log.Debug(fmt.Sprintf("HoldingsByCIK - CIK = %s, Limit = %d", cik, limit))
+	cacheKey := fmt.Sprintf("holdings-by-cik:%s:%d", cik, limit)
+
+	return h.cachedJSON(c, cacheKey, func() (interface{}, error) {
+		return h.institutionalSvc.GetHoldingsByManagerCIK(cik, limit)
+	})
+}
+
 func (h *Handler) GetTopInsiders(c *fiber.Ctx) error {
 	ticker := c.Query("ticker")
 	startYear := c.QueryInt("startYear")
